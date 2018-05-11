@@ -94,22 +94,26 @@ ro2_server <- function(input, output, session) {
 
   meta_mount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
-      mac_options <- paste0(
+      extra_options <- paste0(
         ",defer_permissions,noappledouble,negative_vncache,volname=",
         basename(input$local)
       )
     } else {
-      mac_options <- NULL
+      extra_options <- ",default_permissions"
     }
     paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
-           " -oauto_cache,reconnect,default_permissions", mac_options)
+           " -oauto_cache,reconnect", mac_options)
   })
 
   callModule(sendTerm, "mount", code = meta_mount, term_id = term_id)
 
   meta_unmount <- reactive({
-    paste("fusermount -u", input$local)
+    if (Sys.info()[["sysname"]] == "Darwin") {
+      paste("fusermount -u", input$local)
+    } else {
+      pste("umount", input$local)
+    }
   })
 
   callModule(sendTerm, "unmount", code = meta_unmount, term_id = term_id)
