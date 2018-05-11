@@ -9,7 +9,7 @@ ro2_ui <- miniPage(
                 uiOutput("remote"),
                 uiOutput("local")),
         hr(),
-        h5("Login"), verbatimTextOutput("login"),
+        h5("Login"), send2termOutput("login"),
         h5("Mount home"), verbatimTextOutput("mount")
       )
     ),
@@ -42,10 +42,17 @@ ro2_server <- function(input, output, session) {
     invisible(stopApp())
   })
 
-  if (file.exists("~/.o2meta")) {
-    init_meta <- readLines("~/.o2meta")
+  if (file.exists("~/.ro2-package/o2meta")) {
+    init_meta <- readLines("~/.ro2-package/o2meta")
   } else {
-    init_meta <- c("", "~", "~/o2-home")
+    init_meta <- c("", "~", "~/o2-home", "0")
+  }
+
+  if (rstudioapi::terminalRunning(init_meta[4])) {
+    rstudioapi::terminalActivate(init_meta[4])
+    term_id <- init_meta[4]
+  } else {
+    term_id <- rstudioapi::terminalCreate(caption = "ro2")
   }
 
   output$o2id <- renderUI({
@@ -73,14 +80,16 @@ ro2_server <- function(input, output, session) {
     } else {
       remote <- input$remote
     }
-    c(input$o2id, remote, input$local)
+    c(input$o2id, remote, input$local, term_id)
   })
 
-  observeEvent(meta(), writeLines(meta(), "~/.o2meta"))
+  observeEvent(meta(), writeLines(meta(), "~/.ro2-package/o2meta"))
 
-  output$login <- renderText({
+  meta_login <- reactive({
     paste0("ssh ", input$o2id, "@o2.hms.harvard.edu")
   })
+
+  callModule(send2term, "login", code = meta_login, term_id = term_id)
 
   output$mount <- renderText({
     if (Sys.info()[["sysname"]] == "Darwin") {
@@ -91,13 +100,13 @@ ro2_server <- function(input, output, session) {
     } else {
       mac_options <- NULL
     }
-    paste0("sshfs -p 22 ", input$o2id, "@orchestra.hms.harvard.edu:",
+    paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
            " -oauto_cache,reconnect", mac_options)
   })
 
-  if (file.exists("~/.o2job")) {
-    init_job <- readLines("~/.o2job")
+  if (file.exists("~/.ro2-package/o2job")) {
+    init_job <- readLines("~/.ro2-package/o2job")
   } else {
     init_job <- c("short", "0-03:00:00", "2G", "", "", "", "", "1")
   }
@@ -148,7 +157,7 @@ ro2_server <- function(input, output, session) {
       input$n, input$c, input$N, input$o, input$gpu)
   })
 
-  observeEvent(o2job(), writeLines(o2job(), "~/.o2job"))
+  observeEvent(o2job(), writeLines(o2job(), "~/.ro2-package/o2job"))
 
   job_options <- reactive({
     options <- c(
@@ -191,6 +200,8 @@ ro2_server <- function(input, output, session) {
 
 }
 
-ro2_addin <- function() {
-  runGadget(ro2_ui, ro2_server, viewer = paneViewer())
-}
+runGadget(ro2_ui, ro2_server, viewer = paneViewer())
+
+# ro2_addin <- function() {
+#   runGadget(ro2_ui, ro2_server, viewer = paneViewer())
+# }
