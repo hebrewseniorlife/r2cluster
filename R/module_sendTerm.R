@@ -1,4 +1,7 @@
-send2termOutput <- function(id) {
+#' Create an Code filed and send to terminal button
+#'
+#' @export
+sendTermOutput <- function(id) {
   ns <- NS(id)
   tagList(
     fillRow(flex = c(7, 1), height = "50px",
@@ -8,7 +11,8 @@ send2termOutput <- function(id) {
   )
 }
 
-send2term <- function(input, output, session, code, term_id) {
+#' @export
+sendTerm <- function(input, output, session, code, term_id) {
   ns <- session$ns
 
   output$codeUI <- renderText({

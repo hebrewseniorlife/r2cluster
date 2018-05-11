@@ -9,8 +9,9 @@ ro2_ui <- miniPage(
                 uiOutput("remote"),
                 uiOutput("local")),
         hr(),
-        h5("Login"), send2termOutput("login"),
-        h5("Mount home"), verbatimTextOutput("mount")
+        h5("Login"), sendTermOutput("login"),
+        h5("Mount Folder"), sendTermOutput("mount"),
+        h5("Unmount Folder"), sendTermOutput("unmount")
       )
     ),
     miniTabPanel(
@@ -28,10 +29,10 @@ ro2_ui <- miniPage(
                 uiOutput("gpu")),
         hr(),
         h5("Interactive Session"),
-        verbatimTextOutput("run_int"),
+        sendTermOutput("run_int"),
         h5("Batch Run"),
         shinyFilesButton("file", "Select Script", "Select batch script" , FALSE),
-        verbatimTextOutput("run_batch")
+        sendTermOutput("run_batch")
       )
     )
   )
@@ -42,8 +43,8 @@ ro2_server <- function(input, output, session) {
     invisible(stopApp())
   })
 
-  if (file.exists("~/.ro2-package/o2meta")) {
-    init_meta <- readLines("~/.ro2-package/o2meta")
+  if (file.exists("~/.o2meta")) {
+    init_meta <- readLines("~/.o2meta")
   } else {
     init_meta <- c("", "~", "~/o2-home", "0")
   }
@@ -52,7 +53,7 @@ ro2_server <- function(input, output, session) {
     rstudioapi::terminalActivate(init_meta[4])
     term_id <- init_meta[4]
   } else {
-    term_id <- rstudioapi::terminalCreate(caption = "ro2")
+    term_id <- rstudioapi::terminalCreate(caption = "O2")
   }
 
   output$o2id <- renderUI({
@@ -83,15 +84,15 @@ ro2_server <- function(input, output, session) {
     c(input$o2id, remote, input$local, term_id)
   })
 
-  observeEvent(meta(), writeLines(meta(), "~/.ro2-package/o2meta"))
+  observeEvent(meta(), writeLines(meta(), "~/.o2meta"))
 
   meta_login <- reactive({
     paste0("ssh ", input$o2id, "@o2.hms.harvard.edu")
   })
 
-  callModule(send2term, "login", code = meta_login, term_id = term_id)
+  callModule(sendTerm, "login", code = meta_login, term_id = term_id)
 
-  output$mount <- renderText({
+  meta_mount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
       mac_options <- paste0(
         ",defer_permissions,noappledouble,negative_vncache,volname=",
@@ -102,11 +103,19 @@ ro2_server <- function(input, output, session) {
     }
     paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
-           " -oauto_cache,reconnect", mac_options)
+           " -oauto_cache,reconnect,default_permissions", mac_options)
   })
 
-  if (file.exists("~/.ro2-package/o2job")) {
-    init_job <- readLines("~/.ro2-package/o2job")
+  callModule(sendTerm, "mount", code = meta_mount, term_id = term_id)
+
+  meta_unmount <- reactive({
+    paste("fusermount -u", input$local)
+  })
+
+  callModule(sendTerm, "unmount", code = meta_unmount, term_id = term_id)
+
+  if (file.exists("~/.o2job")) {
+    init_job <- readLines("~/.o2job")
   } else {
     init_job <- c("short", "0-03:00:00", "2G", "", "", "", "", "1")
   }
@@ -157,7 +166,7 @@ ro2_server <- function(input, output, session) {
       input$n, input$c, input$N, input$o, input$gpu)
   })
 
-  observeEvent(o2job(), writeLines(o2job(), "~/.ro2-package/o2job"))
+  observeEvent(o2job(), writeLines(o2job(), "~/.o2job"))
 
   job_options <- reactive({
     options <- c(
@@ -176,10 +185,14 @@ ro2_server <- function(input, output, session) {
     return(options)
   })
 
-  output$run_int <- renderText({
+  job_int <- reactive({
     req(input$partition)
     paste0("srun --pty ", job_options(), " /bin/bash")
   })
+
+  callModule(sendTerm, "run_int", code = job_int, term_id = term_id)
+
+
 
   shinyFileChoose(input, 'file', roots=c(root = "~"))
 
@@ -193,15 +206,16 @@ ro2_server <- function(input, output, session) {
     paste0(meta()[2], path)
   })
 
-  output$run_batch <- renderText({
+  job_batch <- reactive({
     req(input$partition, script_path())
     paste("sbatch", job_options(), script_path())
   })
 
+  callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id)
+
 }
 
-runGadget(ro2_ui, ro2_server, viewer = paneViewer())
-
-# ro2_addin <- function() {
-#   runGadget(ro2_ui, ro2_server, viewer = paneViewer())
-# }
+#' @export
+ro2_addin <- function() {
+  runGadget(ro2_ui, ro2_server, viewer = paneViewer())
+}
