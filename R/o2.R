@@ -103,7 +103,7 @@ ro2_server <- function(input, output, session) {
     }
     paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
-           " -oauto_cache,reconnect", mac_options)
+           " -oauto_cache,reconnect", extra_options)
   })
 
   callModule(sendTerm, "mount", code = meta_mount, term_id = term_id)
