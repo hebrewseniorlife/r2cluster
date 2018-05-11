@@ -7,7 +7,7 @@ Authors@R: c(
     person("Thomas", "Travison", role = "ctb")
     )
 Description: What the package does (one paragraph).
-Depends: R (>= 3.4.2)
+Depends: R (>= 3.2.1)
 Imports:
   shiny,
   miniUI,

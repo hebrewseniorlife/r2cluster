@@ -1,5 +1,5 @@
 ro2_ui <- miniPage(
-  gadgetTitleBar("O2 Cheatsheet"),
+  gadgetTitleBar("O2 Assistant"),
   miniTabstripPanel(
     miniTabPanel(
       "Basics", icon = icon("user"),
