@@ -83,9 +83,17 @@ ro2_server <- function(input, output, session) {
   })
 
   output$mount <- renderText({
+    if (Sys.info()[["sysname"]] == "Darwin") {
+      mac_options <- paste0(
+        ",defer_permissions,noappledouble,negative_vncache,volname=",
+        basename(input$local)
+      )
+    } else {
+      mac_options <- NULL
+    }
     paste0("sshfs -p 22 ", input$o2id, "@orchestra.hms.harvard.edu:",
            meta()[2], " ", input$local,
-           " -oauto_cache,reconnect")
+           " -oauto_cache,reconnect", mac_options)
   })
 
   if (file.exists("~/.o2job")) {
