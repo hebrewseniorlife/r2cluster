@@ -12,7 +12,8 @@ sendTermOutput <- function(id) {
 }
 
 #' @export
-sendTerm <- function(input, output, session, code, term_id) {
+sendTerm <- function(input, output, session, code, term_id,
+                     execute = function(){TRUE}) {
   ns <- session$ns
 
   output$codeUI <- renderText({
@@ -26,6 +27,10 @@ sendTerm <- function(input, output, session, code, term_id) {
 
   observeEvent(input$button, {
     rstudioapi::terminalActivate(term_id)
-    rstudioapi::terminalSend(term_id, code())
+    exe_code <- code()
+    if (execute()) {
+      exe_code <- paste0(exe_code, "\n")
+    }
+    rstudioapi::terminalSend(term_id, exe_code)
   })
 }
