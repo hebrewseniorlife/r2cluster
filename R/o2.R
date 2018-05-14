@@ -4,10 +4,11 @@ ro2_ui <- miniPage(
     miniTabPanel(
       "Basics", icon = icon("user"),
       miniContentPanel(
-        fillRow(flex = c(1, 1, 1), height = "50px",
+        fillRow(flex = c(1, 1, 1, 1), height = "50px",
                 uiOutput("o2id"),
                 uiOutput("remote"),
-                uiOutput("local")),
+                uiOutput("local"),
+                uiOutput("execute")),
         hr(),
         h5("Login"), sendTermOutput("login"),
         h5("Mount Folder"), sendTermOutput("mount"),
@@ -56,6 +57,12 @@ ro2_server <- function(input, output, session) {
     term_id <- rstudioapi::terminalCreate(caption = "O2")
   }
 
+  output$execute <- renderUI({
+    checkboxInput(
+      "exec", "Execture?", value = T
+    )
+  })
+
   output$o2id <- renderUI({
     textInput(
       "o2id", "eCommons ID", value = init_meta[1], width = "95%"
@@ -90,7 +97,10 @@ ro2_server <- function(input, output, session) {
     paste0("ssh ", input$o2id, "@o2.hms.harvard.edu")
   })
 
-  callModule(sendTerm, "login", code = meta_login, term_id = term_id)
+  code_exec <- reactive({input$exec})
+
+  callModule(sendTerm, "login", code = meta_login, term_id = term_id,
+             execute = code_exec)
 
   meta_mount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
@@ -106,13 +116,14 @@ ro2_server <- function(input, output, session) {
            " -oauto_cache,reconnect", extra_options)
   })
 
-  callModule(sendTerm, "mount", code = meta_mount, term_id = term_id)
+  callModule(sendTerm, "mount", code = meta_mount, term_id = term_id,
+             execute = code_exec)
 
   meta_unmount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
-      paste("fusermount -u", input$local)
-    } else {
       paste("umount", input$local)
+    } else {
+      paste("fusermount -u", input$local)
     }
   })
 
@@ -194,7 +205,8 @@ ro2_server <- function(input, output, session) {
     paste0("srun --pty ", job_options(), " /bin/bash")
   })
 
-  callModule(sendTerm, "run_int", code = job_int, term_id = term_id)
+  callModule(sendTerm, "run_int", code = job_int, term_id = term_id,
+             execute = code_exec)
 
 
 
@@ -215,7 +227,8 @@ ro2_server <- function(input, output, session) {
     paste("sbatch", job_options(), script_path())
   })
 
-  callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id)
+  callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id,
+             execute = code_exec)
 
 }
 
