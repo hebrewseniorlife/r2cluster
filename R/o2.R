@@ -54,8 +54,9 @@ ro2_server <- function(input, output, session) {
     rstudioapi::terminalActivate(init_meta[4])
     term_id <- init_meta[4]
   } else {
-    term_id <- rstudioapi::terminalCreate(caption = "O2")
+    term_id <- rstudioapi::terminalCreate()
   }
+
 
   output$execute <- renderUI({
     checkboxInput(
@@ -223,8 +224,11 @@ ro2_server <- function(input, output, session) {
   })
 
   job_batch <- reactive({
-    req(input$partition, script_path())
-    paste("sbatch", job_options(), script_path())
+    req(input$partition)
+    if (isTruthy(input$file)) {
+      return(paste("sbatch", job_options(), script_path()))
+    }
+    return("Select a .sh Script")
   })
 
   callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id,
