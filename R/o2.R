@@ -115,7 +115,7 @@ ro2_server <- function(input, output, session) {
         basename(input$local)
       )
     } else {
-      extra_options <- ",default_permissions"
+      extra_options <- ""
     }
     paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
