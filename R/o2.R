@@ -47,15 +47,21 @@ ro2_server <- function(input, output, session) {
   if (file.exists("~/.o2meta")) {
     init_meta <- readLines("~/.o2meta")
   } else {
-    init_meta <- c("", "~", "~/o2-home", "0")
+    init_meta <- c("", "~", "~/o2-home")
   }
 
-  if (rstudioapi::terminalRunning(init_meta[4])) {
-    rstudioapi::terminalActivate(init_meta[4])
-    term_id <- init_meta[4]
+  if (length(rstudioapi::terminalList()) != 0) {
+    terms <- rstudioapi::terminalList()
+    term_caption <- sapply(terms, function(x){terminalContext(x)["caption"]})
+    if ("O2" %in% term_caption) {
+      term_id <- terms[term_caption == "O2"]
+    } else {
+      term_id <- rstudioapi::terminalCreate(caption = "O2")
+    }
   } else {
     term_id <- rstudioapi::terminalCreate()
   }
+  rstudioapi::terminalActivate(term_id)
 
 
   output$execute <- renderUI({
@@ -210,8 +216,13 @@ ro2_server <- function(input, output, session) {
              execute = code_exec)
 
 
+  reactive_root <- function() {
+    local_path <- readLines("~/.o2meta")[3]
+    # local_path <- "~"
+    return(c(root = normalizePath(local_path)))
+  }
 
-  shinyFileChoose(input, 'file', roots=c(root = "~"))
+  shinyFileChoose(input, 'file', roots = reactive_root)
 
   script_path <- reactive({
     req(input$file)
