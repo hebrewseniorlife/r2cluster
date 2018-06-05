@@ -7,9 +7,9 @@ Authors@R: c(
     person("Thomas", "Travison", role = "ctb")
     )
 Description: Provides interactive utilities for using the Harvard Medical School 
-    'O2' cluster. This 'RStudio' addin makes it easy to temporarily mount 
-    folders, login into the server, start working node with customization and 
-    setup 'ssh-keygen'. 
+    'O2' cluster. This 'RStudio' addin interacts with the terminal panel in 
+    'RStudio'. It makes it easy to temporarily mount folders, login into the 
+    server, start working node with customization and setup 'ssh-keygen'. 
 Depends: R (>= 3.2.1)
 Imports:
   shiny,

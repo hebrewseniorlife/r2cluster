@@ -12,6 +12,9 @@ This is an unofficial utility package to the O2 (Orchestra) Server in Harvard Me
 ### sshkey-gen setup Panel
 ![Addin3](docs/addin3.png)
 
+### RStudio Terminal Panel
+![terminal](docs/term.png)
+
 ## Install
 ```r
 devtools::install_github("hebrewseniorlife/ro2")
