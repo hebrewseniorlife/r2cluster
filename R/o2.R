@@ -1,8 +1,8 @@
 ro2_ui <- miniPage(
-  gadgetTitleBar("O2 Assistant"),
+  gadgetTitleBar("O2 Assistant", left = NULL),
   miniTabstripPanel(
     miniTabPanel(
-      "Basics", icon = icon("user"),
+      "Login", icon = icon("user"),
       miniContentPanel(
         fillRow(flex = c(1, 1, 1, 1), height = "50px",
                 uiOutput("o2id"),
@@ -10,6 +10,7 @@ ro2_ui <- miniPage(
                 uiOutput("local"),
                 uiOutput("execute")),
         hr(),
+        h4("On your local machine:"),
         h5("Login"), sendTermOutput("login"),
         h5("Mount Folder"), sendTermOutput("mount"),
         h5("Unmount Folder"), sendTermOutput("unmount")
@@ -29,11 +30,61 @@ ro2_ui <- miniPage(
                 uiOutput("o"),
                 uiOutput("gpu")),
         hr(),
+        h4("On O2 server:"),
         h5("Interactive Session"),
         sendTermOutput("run_int"),
-        h5("Batch Run"),
-        shinyFilesButton("file", "Select Script", "Select batch script" , FALSE),
-        sendTermOutput("run_batch")
+        tags$div(
+          h5("Batch Run", style = "float: left;"),
+          tags$div(
+            style = "float: right;",
+            shinyFilesButton("file", "Select Script", "Select batch script" , FALSE)
+          )
+        ),
+        sendTermOutput("run_batch"),
+        hr(),
+        radioGroupButtons(
+          inputId = "module", label = "Module Related",
+          choices = c("Search possible modules" = "spider",
+                      "List loaded modules" = "list",
+                      "Save current setups" = "s",
+                      "Restore saved setups" = "r")
+        ),
+        sendTermOutput("run_module")
+      )
+    ),
+    miniTabPanel(
+      "ssh-keygen", icon = icon("lock"),
+      miniContentPanel(
+        h4("On your local machine:"),
+        h5("1. Generate ssh RSA key"),
+        fillRow(
+          flex = c(6, 2), height = "70px",
+          tagList(
+            p("Follow instruction on the screen and create a set of ssh RSA keys (private & public)."),
+            p("Do not enter any passphrase for passwordless login. ")
+          ),
+          div(style = "min-width: 160px;",
+              textInput("sshkey_file", "Enter sshkey file name", "id_rsa", width = "100%"))
+        ),
+        sendTermOutput("run_sshkeygen"),
+        h5("2. Setup ssh key config file"),
+        p("Put something like below in ~/.ssh/config. Make changes to the last line if necessary."),
+        fillRow(
+          flex = c(7, 1), height = "100px",
+          verbatimTextOutput("sshkey_config"), uiOutput("sshkey_config_btn")
+        ),
+        h5("3. Copy the ssh pub key file to the O2 server & login"),
+        sendTermOutput("run_sshkey_scp"),
+        sendTermOutput("run_ssh_login"),
+        hr(),
+        h4("On O2 server:"),
+        h5("4. Put pub key into authorized_keys file"),
+        fillRow(
+          flex = c(7, 1), height = "180px",
+          uiOutput("sshkey_auth"),
+          uiOutput("sshkey_auth_btn")
+        )
+
       )
     )
   )
@@ -44,10 +95,12 @@ ro2_server <- function(input, output, session) {
     invisible(stopApp())
   })
 
+  # Login =====================================================================
+
   if (file.exists("~/.o2meta")) {
     init_meta <- readLines("~/.o2meta")
   } else {
-    init_meta <- c("", "~", "~/o2-home")
+    init_meta <- c("", "~", "~/o2_home")
   }
 
   if (length(rstudioapi::terminalList()) != 0) {
@@ -65,8 +118,12 @@ ro2_server <- function(input, output, session) {
 
 
   output$execute <- renderUI({
-    checkboxInput(
-      "exec", "Execture?", value = T
+    tags$div(
+      # actionButton("create_local", "Create Dir"),
+      style = "margin-top: 35px; ",
+      materialSwitch(
+        "exec", "Execute", value = T, status = "primary"
+      )
     )
   })
 
@@ -120,7 +177,7 @@ ro2_server <- function(input, output, session) {
     }
     paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
            meta()[2], " ", input$local,
-           " -oauto_cache,reconnect", extra_options)
+           " -oauto_cache", extra_options)
   })
 
   callModule(sendTerm, "mount", code = meta_mount, term_id = term_id,
@@ -135,6 +192,8 @@ ro2_server <- function(input, output, session) {
   })
 
   callModule(sendTerm, "unmount", code = meta_unmount, term_id = term_id)
+
+  # Run =======================================================================
 
   if (file.exists("~/.o2job")) {
     init_job <- readLines("~/.o2job")
@@ -216,13 +275,7 @@ ro2_server <- function(input, output, session) {
              execute = code_exec)
 
 
-  reactive_root <- function() {
-    local_path <- readLines("~/.o2meta")[3]
-    # local_path <- "~"
-    return(c(root = normalizePath(local_path)))
-  }
-
-  shinyFileChoose(input, 'file', roots = reactive_root)
+  shinyFileChoose(input, 'file', roots =  c(home = "~"))
 
   script_path <- reactive({
     req(input$file)
@@ -245,6 +298,69 @@ ro2_server <- function(input, output, session) {
   callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id,
              execute = code_exec)
 
+  module_code <- reactive({
+    paste("module", input$module)
+  })
+
+  callModule(sendTerm, "run_module", code = module_code, term_id = term_id,
+             execute = code_exec)
+
+
+  # sshkey-gen ================================================================
+  sshkeygen <- reactive({
+    req(input$o2id)
+    paste0('ssh-keygen -t rsa -C ', '"', input$o2id, '"')
+  })
+
+  callModule(sendTerm, "run_sshkeygen", code = sshkeygen, term_id = term_id,
+             execute = code_exec)
+
+  output$sshkey_config <- renderText({
+    paste0("Host o2 o2.hms.harvard.edu\n AddKeysToAgent yes\n HostName o2.hms.harvard.edu\n IdentityFile ~/.ssh/", input$sshkey_file)
+  })
+
+  output$sshkey_config_btn <- renderUI({
+    actionButton("sshkey_config_file", label = icon("play"), width = "95%",
+                 style = "height: 93px; margin-left: 2px;")
+  })
+
+  observeEvent(input$sshkey_config_file, {
+    file.edit("~/.ssh/config")
+  })
+
+  sshkey_scp <- reactive({
+    req(input$o2id)
+    paste0('scp ~/.ssh/', input$sshkey_file, ".pub ", input$o2id, '@o2.hms.harvard.edu:')
+  })
+
+  callModule(sendTerm, "run_sshkey_scp", code = sshkey_scp, term_id = term_id,
+             execute = code_exec)
+
+  callModule(sendTerm, "run_ssh_login", code = meta_login, term_id = term_id,
+             execute = code_exec)
+
+  output$sshkey_auth <- renderUI({
+    tagList(
+      textInput("sshkey_auth_1", NULL, "mkdir -p ~/.ssh", width = "100%"),
+      textInput("sshkey_auth_2", NULL, "touch ~/.ssh/authorized_keys", width = "100%"),
+      textInput("sshkey_auth_3", NULL,
+                paste0("cat ~/", input$sshkey_file, ".pub >> ~/.ssh/authorized_keys"), width = "100%"),
+      textInput("sshkey_auth_4", NULL, paste0("rm ~/", input$sshkey_file, ".pub"), width = "100%")
+    )
+  })
+
+  output$sshkey_auth_btn <- renderUI({
+    actionButton("sshkey_auth_run", label = icon("play"), width = "95%",
+                 style = "height: 180px; margin-left: 2px;")
+  })
+
+  observeEvent(input$sshkey_auth_run, {
+    rstudioapi::terminalActivate(term_id)
+    rstudioapi::terminalSend(term_id, paste0(input$sshkey_auth_1, "\n"))
+    rstudioapi::terminalSend(term_id, paste0(input$sshkey_auth_2, "\n"))
+    rstudioapi::terminalSend(term_id, paste0(input$sshkey_auth_3, "\n"))
+    rstudioapi::terminalSend(term_id, paste0(input$sshkey_auth_4, "\n"))
+  })
 }
 
 #' @export

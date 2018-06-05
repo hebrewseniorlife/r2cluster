@@ -1,18 +1,25 @@
 Package: ro2
-Title: What the Package Does (one line, title case)
-Version: 0.0.0.9000
+Title: Interactive Assistant for Using the Harvard Medical School O2 Cluster
+Version: 0.1.0
 Authors@R: c(
     person("Hao", "Zhu", email = "haozhu233@gmail.com", role = c("aut", "cre")),
     person("Fredrick", "Kinyua", role = "ctb"),
     person("Thomas", "Travison", role = "ctb")
     )
-Description: What the package does (one paragraph).
+Description: Provides interactive utilities for using the Harvard Medical School 
+    'O2' cluster. This 'RStudio' addin makes it easy to temporarily mount 
+    folders, login into the server, start working node with customization and 
+    setup 'ssh-keygen'. 
 Depends: R (>= 3.2.1)
 Imports:
   shiny,
   miniUI,
   shinyFiles,
-  rstudioapi
+  rstudioapi,
+  shinyWidgets,
+  utils
+URL: http://github.com/hebrewseniorlife/ro2
+BugReports: http://github.com/hebrewseniorlife/ro2/issues
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
