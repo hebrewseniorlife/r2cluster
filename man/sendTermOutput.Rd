@@ -2,10 +2,13 @@
 % Please edit documentation in R/module_sendTerm.R
 \name{sendTermOutput}
 \alias{sendTermOutput}
-\title{Create an Code filed and send to terminal button}
+\title{Create an Code field and send to terminal button output}
 \usage{
 sendTermOutput(id)
 }
+\arguments{
+\item{id}{output variable to be rendered}
+}
 \description{
-Create an Code filed and send to terminal button
+Render a sendTerm shiny module on an application page.
 }

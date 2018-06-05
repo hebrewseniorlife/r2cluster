@@ -363,6 +363,8 @@ ro2_server <- function(input, output, session) {
   })
 }
 
+#' RO2 RStudio Addin
+#'
 #' @export
 ro2_addin <- function() {
   runGadget(ro2_ui, ro2_server, viewer = paneViewer())
