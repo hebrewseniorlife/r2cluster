@@ -41,6 +41,7 @@ ro2_ui <- miniPage(
           )
         ),
         sendTermOutput("run_batch"),
+        actionButton("check_batch", "Check Batch Job Status", icon("chalkboard")),
         hr(),
         radioGroupButtons(
           inputId = "module", label = "Module Related",
@@ -290,10 +291,17 @@ ro2_server <- function(input, output, session) {
   job_batch <- reactive({
     req(input$partition)
     if (isTruthy(input$file)) {
-      return(paste("sbatch", job_options(), script_path()))
+      return(paste("sbatch", job_options(), script_path(),
+                   "-o out.%j -e err.%j"))
     }
     return("Select a .sh Script")
   })
+
+  observeEvent(input$check_batch, {
+    rstudioapi::terminalActivate(term_id)
+    rstudioapi::terminalSend(term_id, "squeue -u $USER\n")
+  })
+
 
   callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id,
              execute = code_exec)
