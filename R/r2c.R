@@ -1,14 +1,15 @@
-ro2_ui <- miniPage(
-  gadgetTitleBar("O2 Assistant", left = NULL),
+r2c_ui <- miniPage(
+  gadgetTitleBar("Cluster Assistant", left = NULL),
   miniTabstripPanel(
     miniTabPanel(
       "Login", icon = icon("user"),
       miniContentPanel(
-        fillRow(flex = c(1, 1, 1, 1), height = "50px",
-                uiOutput("o2id"),
+        fillRow(flex = c(1, 1, 1, 1, 1), height = "60px",
+                uiOutput("url"),
+                uiOutput("port"),
+                uiOutput("id"),
                 uiOutput("remote"),
-                uiOutput("local"),
-                uiOutput("execute")),
+                uiOutput("local")),
         hr(),
         h4("On your local machine:"),
         h5("Login"), sendTermOutput("login"),
@@ -17,7 +18,7 @@ ro2_ui <- miniPage(
       )
     ),
     miniTabPanel(
-      "Run", icon = icon("paper-plane"),
+      "Slurm", icon = icon("paper-plane"),
       miniContentPanel(
         fillRow(flex = c(1, 1, 1), height = "60px",
                 uiOutput("partition"),
@@ -30,7 +31,17 @@ ro2_ui <- miniPage(
                 uiOutput("o"),
                 uiOutput("gpu")),
         hr(),
-        h4("On O2 server:"),
+        h4("On the Cluster server:"),
+        radioGroupButtons(
+          inputId = "module", label = "Module Related",
+          choices = c("Default" = "gcc R",
+                      "Search possible modules" = "spider",
+                      "List loaded modules" = "list",
+                      "Save current setups" = "s",
+                      "Restore saved setups" = "r")
+        ),
+        sendTermOutput("run_module"),
+        hr(),
         h5("Interactive Session"),
         sendTermOutput("run_int"),
         tags$div(
@@ -41,16 +52,7 @@ ro2_ui <- miniPage(
           )
         ),
         sendTermOutput("run_batch"),
-        actionButton("check_batch", "Check Batch Job Status", icon("chalkboard")),
-        hr(),
-        radioGroupButtons(
-          inputId = "module", label = "Module Related",
-          choices = c("Search possible modules" = "spider",
-                      "List loaded modules" = "list",
-                      "Save current setups" = "s",
-                      "Restore saved setups" = "r")
-        ),
-        sendTermOutput("run_module")
+        actionButton("check_batch", "Check Batch Job Status", icon("chalkboard"))
       )
     ),
     miniTabPanel(
@@ -91,46 +93,48 @@ ro2_ui <- miniPage(
   )
 )
 
-ro2_server <- function(input, output, session) {
+r2c_server <- function(input, output, session) {
   observeEvent(input$done, {
     invisible(stopApp())
   })
 
   # Login =====================================================================
 
-  if (file.exists("~/.o2meta")) {
-    init_meta <- readLines("~/.o2meta")
+  if (file.exists("~/.r2cmeta")) {
+    init_meta <- read.dcf("~/.r2cmeta")
   } else {
-    init_meta <- c("", "~", "~/o2_home")
+    init_meta <- c("", "~", "~/cluster_home", "o2.hms.harvard.edu", "22")
+    names(init_meta) <- c("username", "remoteFolder", "localFolder", "url", "port")
   }
 
   if (length(rstudioapi::terminalList()) != 0) {
     terms <- rstudioapi::terminalList()
     term_caption <- sapply(terms, function(x){terminalContext(x)["caption"]})
-    if ("O2" %in% term_caption) {
-      term_id <- terms[term_caption == "O2"]
+    if ("r2c" %in% term_caption) {
+      term_id <- terms[term_caption == "r2c"]
     } else {
-      term_id <- rstudioapi::terminalCreate(caption = "O2")
+      term_id <- rstudioapi::terminalCreate(caption = "r2c")
     }
   } else {
     term_id <- rstudioapi::terminalCreate()
   }
   rstudioapi::terminalActivate(term_id)
 
-
-  output$execute <- renderUI({
-    tags$div(
-      # actionButton("create_local", "Create Dir"),
-      style = "margin-top: 35px; ",
-      materialSwitch(
-        "exec", "Execute", value = T, status = "primary"
-      )
+  output$id <- renderUI({
+    textInput(
+      "id", "Username", value = init_meta[1], width = "95%"
     )
   })
 
-  output$o2id <- renderUI({
+  output$url <- renderUI({
     textInput(
-      "o2id", "eCommons ID", value = init_meta[1], width = "95%"
+      "url", "Cluster URL", value = init_meta[4], width = "95%"
+    )
+  })
+
+  output$port <- renderUI({
+    textInput(
+      "port", "Cluster port", value = init_meta[5], width = "95%"
     )
   })
 
@@ -149,23 +153,22 @@ ro2_server <- function(input, output, session) {
   meta <- reactive({
     req(input$remote)
     if (input$remote == "~") {
-      remote <- paste0("/home/", input$o2id)
+      remote <- paste0("/home/", input$id)
     } else {
       remote <- input$remote
     }
-    c(input$o2id, remote, input$local, term_id)
+    out <- c(input$id, remote, input$local, input$url, input$port)
+    names(out) <- c("username", "remoteFolder", "localFolder", "url", "port")
+    return(out)
   })
 
-  observeEvent(meta(), writeLines(meta(), "~/.o2meta"))
+  observeEvent(meta(), write.dcf(meta(), "~/.r2cmeta"))
 
   meta_login <- reactive({
-    paste0("ssh ", input$o2id, "@o2.hms.harvard.edu")
+    paste0("ssh ", input$id, "@", input$url)
   })
 
-  code_exec <- reactive({input$exec})
-
-  callModule(sendTerm, "login", code = meta_login, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "login", code = meta_login, term_id = term_id)
 
   meta_mount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
@@ -176,13 +179,12 @@ ro2_server <- function(input, output, session) {
     } else {
       extra_options <- ""
     }
-    paste0("sshfs -p 22 ", input$o2id, "@o2.hms.harvard.edu:",
+    paste0("sshfs -p ", input$port, " ", input$id, "@", input$url, ":",
            meta()[2], " ", input$local,
            " -oauto_cache", extra_options)
   })
 
-  callModule(sendTerm, "mount", code = meta_mount, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "mount", code = meta_mount, term_id = term_id)
 
   meta_unmount <- reactive({
     if (Sys.info()[["sysname"]] == "Darwin") {
@@ -196,18 +198,17 @@ ro2_server <- function(input, output, session) {
 
   # Run =======================================================================
 
-  if (file.exists("~/.o2job")) {
-    init_job <- readLines("~/.o2job")
+  if (file.exists("~/.r2cjob")) {
+    init_job <- read.dcf("~/.r2cjob")
   } else {
     init_job <- c("short", "0-03:00:00", "2G", "", "", "", "", "1")
+    names(init_job) <- c("partition", "duration", "memory", "n",
+                         "c", "N", "o", "gpu")
   }
 
   output$partition <- renderUI({
-    selectInput(
-      "partition", "Partition",
-      choices = c("short", "gpu", "medium", "long",
-                  "mpi", "priority", "transfer"),
-      selected = init_job[1], width = "95%"
+    textInput(
+      "partition", "Partition", value = init_job[1], width = "95%"
     )
   })
 
@@ -243,12 +244,15 @@ ro2_server <- function(input, output, session) {
     textInput("gpu", "# GPU", value = init_job[8], width = "95%")
   })
 
-  o2job <- reactive({
-    c(input$partition, input$duration, input$mem,
-      input$n, input$c, input$N, input$o, input$gpu)
+  r2cjob <- reactive({
+    req(input$partition)
+    out <- c(input$partition, input$duration, input$mem,
+             input$n, input$c, input$N, input$o, input$gpu)
+    names(out) <- c("partition", "duration", "memory", "n", "c", "N", "o", "gpu")
+    return(out)
   })
 
-  observeEvent(o2job(), writeLines(o2job(), "~/.o2job"))
+  observeEvent(r2cjob(), write.dcf(r2cjob(), "~/.r2cjob"))
 
   job_options <- reactive({
     options <- c(
@@ -272,8 +276,7 @@ ro2_server <- function(input, output, session) {
     paste0("srun --pty ", job_options(), " /bin/bash")
   })
 
-  callModule(sendTerm, "run_int", code = job_int, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_int", code = job_int, term_id = term_id)
 
 
   shinyFileChoose(input, 'file', roots =  c(home = "~"))
@@ -303,25 +306,22 @@ ro2_server <- function(input, output, session) {
   })
 
 
-  callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_batch", code = job_batch, term_id = term_id)
 
   module_code <- reactive({
     paste("module", input$module)
   })
 
-  callModule(sendTerm, "run_module", code = module_code, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_module", code = module_code, term_id = term_id)
 
 
   # sshkey-gen ================================================================
   sshkeygen <- reactive({
-    req(input$o2id)
-    paste0('ssh-keygen -t rsa -C ', '"', input$o2id, '"')
+    req(input$id)
+    paste0('ssh-keygen -t rsa -C ', '"', input$id, '"')
   })
 
-  callModule(sendTerm, "run_sshkeygen", code = sshkeygen, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_sshkeygen", code = sshkeygen, term_id = term_id)
 
   output$sshkey_config <- renderText({
     paste0("Host o2 o2.hms.harvard.edu\n AddKeysToAgent yes\n HostName o2.hms.harvard.edu\n IdentityFile ~/.ssh/", input$sshkey_file)
@@ -337,15 +337,13 @@ ro2_server <- function(input, output, session) {
   })
 
   sshkey_scp <- reactive({
-    req(input$o2id)
-    paste0('scp ~/.ssh/', input$sshkey_file, ".pub ", input$o2id, '@o2.hms.harvard.edu:')
+    req(input$id)
+    paste0('scp ~/.ssh/', input$sshkey_file, ".pub ", input$id, '@o2.hms.harvard.edu:')
   })
 
-  callModule(sendTerm, "run_sshkey_scp", code = sshkey_scp, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_sshkey_scp", code = sshkey_scp, term_id = term_id)
 
-  callModule(sendTerm, "run_ssh_login", code = meta_login, term_id = term_id,
-             execute = code_exec)
+  callModule(sendTerm, "run_ssh_login", code = meta_login, term_id = term_id)
 
   output$sshkey_auth <- renderUI({
     tagList(
@@ -371,9 +369,9 @@ ro2_server <- function(input, output, session) {
   })
 }
 
-#' RO2 RStudio Addin
+#' r2cluster RStudio Addin
 #'
 #' @export
-ro2_addin <- function() {
-  runGadget(ro2_ui, ro2_server, viewer = paneViewer())
+r2c_addin <- function() {
+  runGadget(r2c_ui, r2c_server, viewer = paneViewer())
 }

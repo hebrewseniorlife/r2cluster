@@ -1,4 +1,4 @@
-Name: O2 Assistant
-Description: HMS O2 Assistant
-Binding: ro2_addin
+Name: 💻 Cluster Assistant
+Description: An Assistant for logining to cluster server and common tasks
+Binding: r2c_addin
 Interactive: true

@@ -23,11 +23,14 @@ sendTermOutput <- function(id) {
 #' @param code a reactive object for the code to be printed and executed
 #' @param term_id RStudio terminal ID
 #' @param execute a reactive object for whether to let the code execute after
-#' clicking the play button.
+#' clicking the play button. Default is TRUE
+#' @param extra a customizable function that does things other than sending commands to terminal.
 #'
 #' @export
 sendTerm <- function(input, output, session, code, term_id,
-                     execute = function(){TRUE}) {
+                     execute = function(){TRUE},
+                     extra = function(){}) {
+  isolate(extra())
   ns <- session$ns
 
   output$codeUI <- renderUI({

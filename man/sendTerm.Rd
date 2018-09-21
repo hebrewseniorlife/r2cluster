@@ -4,8 +4,8 @@
 \alias{sendTerm}
 \title{Create an Code field and send to terminal button shiny module}
 \usage{
-sendTerm(input, output, session, code, term_id, execute = function() {    
-  TRUE })
+sendTerm(input, output, session, code, term_id, execute = function() {   
+   TRUE }, extra = function() { })
 }
 \arguments{
 \item{input}{input for the shiny session}
@@ -19,7 +19,9 @@ sendTerm(input, output, session, code, term_id, execute = function() {
 \item{term_id}{RStudio terminal ID}
 
 \item{execute}{a reactive object for whether to let the code execute after
-clicking the play button.}
+clicking the play button. Default is TRUE}
+
+\item{extra}{a customizable function that does things other than sending commands to terminal.}
 }
 \description{
 Create an Code field and send to terminal button shiny module

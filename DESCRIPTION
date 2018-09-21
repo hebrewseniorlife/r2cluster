@@ -1,10 +1,10 @@
-Package: ro2
+Package: r2cluster
 Title: Interactive Assistant for Using the Harvard Medical School O2 Cluster
 Version: 0.1.0
 Authors@R: c(
     person("Hao", "Zhu", email = "haozhu233@gmail.com", role = c("aut", "cre")),
-    person("Fredrick", "Kinyua", role = "ctb"),
-    person("Thomas", "Travison", role = "ctb")
+    person("Fredrick", "Kinyua", role = "aut"),
+    person("Thomas", "Travison", role = "aut")
     )
 Description: Provides interactive utilities for using the Harvard Medical School 
     'O2' cluster. This 'RStudio' addin interacts with the terminal panel in 
@@ -18,9 +18,9 @@ Imports:
   rstudioapi,
   shinyWidgets,
   utils
-URL: http://github.com/hebrewseniorlife/ro2
-BugReports: http://github.com/hebrewseniorlife/ro2/issues
+URL: http://github.com/hebrewseniorlife/r2cluster
+BugReports: http://github.com/hebrewseniorlife/r2cluster/issues
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0
